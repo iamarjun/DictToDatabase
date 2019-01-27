@@ -1,14 +1,14 @@
 package com.example.dicttodatabase
 
-import com.example.dicttodatabase.database.DatabaseHandler
+import android.util.Log
 import com.example.dicttodatabase.database.Dictionary
 import com.example.dicttodatabase.database.DictionaryDatabase
-import com.example.dicttodatabase.utils.CallBack
-import com.example.dicttodatabase.utils.DBCallBack
-import io.reactivex.Completable
-import io.reactivex.CompletableObserver
+import com.example.dicttodatabase.network.Client
+import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
+import io.reactivex.functions.Consumer
+import io.reactivex.observers.DisposableObserver
 import io.reactivex.schedulers.Schedulers
 import java.util.*
 import java.util.regex.Pattern
@@ -16,90 +16,123 @@ import javax.inject.Inject
 
 
 class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
-    override fun addWordToDB(dictionary: Dictionary) {
-    }
 
     @Inject
-    internal lateinit var repository: Repository
-
-    @Inject
-    internal lateinit var apiCaller: ApiCaller
+    internal lateinit var client: Client
 
     private var db: DictionaryDatabase = DictionaryDatabase.getInstance()!!
-    private var databaseHandler: DatabaseHandler
 
+    private val getAllWords: Disposable
+        get() = Single.fromCallable<Unit> {
+            for (i in 0 until 50) {
+                Log.i("WORDS", db.dictionaryDAO().getAllMessages()[i].word)
+                Log.i("SPEECHES", db.dictionaryDAO().getAllMessages()[i].speech)
+                Log.i("MEANING", db.dictionaryDAO().getAllMessages()[i].meaning)
+            }
+        }
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .doOnError { it.printStackTrace() }
+            .subscribe(Consumer<Unit> { })
+
+    private val getLastWords: Disposable
+        get() = Single.fromCallable<Unit> {
+//            for (i in 0 until 50) {
+//                Log.i("WORDS", db.dictionaryDAO().getLastEntries()[i].word)
+//                Log.i("SPEECHES", db.dictionaryDAO().getLastEntries()[i].speech)
+//                Log.i("MEANING", db.dictionaryDAO().getLastEntries()[i].meaning)
+//            }
+
+            Log.i("LAST RECORD", db.dictionaryDAO().getLastRecord().word)
+
+        }
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .doOnError { it.printStackTrace() }
+            .subscribe(Consumer<Unit> { })
+
+
+    private val nukeDB: Disposable
+        get() = Single.fromCallable<Unit> { db.clearAllTables() }
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .doOnError { it.printStackTrace() }
+            .subscribe(Consumer<Unit> { })
 
     init {
         App.appComponent.inject(this)
-        databaseHandler = DatabaseHandler(App.appContext)
     }
+
 
     override fun downloadWords() {
 
-//        var alphabet = 'a'
-//        while (alphabet <= 'z') {
-//
-//        }
+        var alphabet = 'a'
+        view.progressBarVisibility(true)
 
-        databaseHandler.removeData()
-
-        apiCaller.downloadFile("wb1913_a.html", object : CallBack<String> {
-            override fun onSuccess(t: String) {
-                //val m = t
-
-
-                //htmlParser(t)
-                //alphabet++
-                view.onSuccessAddingWordToDB()
-            }
-
-            override fun onFailure(message: String) {
-                view.onErrorFetchingHTML(message)
-            }
-
-        })
-
-
-//        var alphabet = 'a'
-//        while (alphabet <= 'z') {
-//
-//            disposable = Single.fromCallable<Unit> {
-//                this.downloadWordsFromUrl("http://www.mso.anu.edu.au/~ralph/OPTED/v003/wb1913_${alphabet}.html")
-//            }
-//                .subscribeOn(Schedulers.io())
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .doOnError { it.printStackTrace() }
-//                .subscribe(Consumer<Unit> { this.onResult() })
-//            alphabet++
-//        }
-//
-//        compositeDisposable.add(disposable)
-//        compositeDisposable.dispose()
-
-    }
-
-
-
-    fun addWord(DBCallBack: DBCallBack, dictionary: Dictionary) {
-        Completable.fromAction { db.dictionaryDAO().insert(dictionary) }
-            .observeOn(AndroidSchedulers.mainThread())
+        client.downloadFile("wb1913_$alphabet.html")
             .subscribeOn(Schedulers.io())
-            .subscribe(object : CompletableObserver {
+            .filter { html ->
+                htmlParser(html)
+                return@filter true
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(object : DisposableObserver<String>() {
                 override fun onComplete() {
-                    DBCallBack.onWordAdded()
-                    db.endTransaction()
                 }
 
-                override fun onSubscribe(d: Disposable) {
+                override fun onNext(t: String) {
+                    alphabet++
+                    view.progressBarVisibility(false)
+                    view.onSuccessAddingWordToDB()
                 }
 
                 override fun onError(e: Throwable) {
-                    DBCallBack.onWordNotAvailable(e.message.toString())
+                    view.progressBarVisibility(false)
+                    view.onErrorAddingWordToDB(e.message.toString())
                 }
 
             })
     }
 
+    private fun htmlParser(html: String) {
+
+        val matchedWords = ArrayList<String>()
+        val matchedSpeeches = ArrayList<String>()
+        val matchedMean = ArrayList<String>()
+
+        val wrd = Pattern.compile("(<P><B>)(.*?)(<\\/B>)").matcher(html)
+        val sp = Pattern.compile("(\\(<I>)(.*?)(<\\/I>\\))").matcher(html)
+        val mn = Pattern.compile("(<\\/I>\\))(.*?)(<\\/P>)").matcher(html)
+
+
+        while (wrd.find() && sp.find() && mn.find()) {
+            matchedWords.add(wrd.group(2))
+            matchedSpeeches.add(sp.group(2))
+            matchedMean.add(mn.group(2))
+        }
+
+        val words = matchedWords.toTypedArray()
+        val speeches = matchedSpeeches.toTypedArray()
+        val meanings = matchedMean.toTypedArray()
+
+
+        for (i in 0 until words.size) {
+            db.dictionaryDAO().insert(Dictionary(0, words[i], speeches[i], meanings[i]))
+        }
+
+    }
+
+    override fun dropDB() {
+        nukeDB
+    }
+
+    override fun getAllWords() {
+        getAllWords
+    }
+
+    override fun getLastWords() {
+        getLastWords
+    }
 
     override fun onAttach() {
     }

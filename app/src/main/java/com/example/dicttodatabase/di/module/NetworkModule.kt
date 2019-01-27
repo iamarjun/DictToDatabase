@@ -1,6 +1,5 @@
 package com.example.dicttodatabase.di.module
 
-import com.example.dicttodatabase.ApiCaller
 import com.example.dicttodatabase.network.Client
 import com.example.dicttodatabase.utils.Constants
 import dagger.Module
@@ -47,9 +46,4 @@ class NetworkModule {
             .client(okHttpClient)
             .build()
             .create(Client::class.java)
-
-    @Provides
-    @Singleton
-    internal fun provideApiCaller(): ApiCaller = ApiCaller()
-
 }

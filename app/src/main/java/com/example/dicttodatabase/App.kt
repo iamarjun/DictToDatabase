@@ -5,7 +5,6 @@ import android.content.Context
 import com.example.dicttodatabase.di.AppComponent
 import com.example.dicttodatabase.di.DaggerAppComponent
 import com.example.dicttodatabase.di.module.NetworkModule
-import com.example.dicttodatabase.di.module.RepositoryModule
 
 class App : Application() {
 
@@ -19,7 +18,6 @@ class App : Application() {
 
         appContext = applicationContext
         appComponent = DaggerAppComponent.builder()
-            .repositoryModule(RepositoryModule())
             .networkModule(NetworkModule())
             .build()
     }

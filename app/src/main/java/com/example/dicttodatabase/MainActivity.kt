@@ -2,9 +2,10 @@ package com.example.dicttodatabase
 
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
+import android.view.View
 import android.widget.Toast
-import com.example.dicttodatabase.database.DatabaseHandler
-import com.example.dicttodatabase.utils.DBCallBack
+import kotlinx.android.synthetic.main.activity_main.*
+
 
 class MainActivity : AppCompatActivity(), Contract.MainView {
 
@@ -17,6 +18,8 @@ class MainActivity : AppCompatActivity(), Contract.MainView {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        presenter.dropDB()
     }
 
     override fun onResume() {
@@ -24,17 +27,20 @@ class MainActivity : AppCompatActivity(), Contract.MainView {
         presenter.downloadWords()
     }
 
-    override fun onSuccessAddingWordToDB() {
+    override fun progressBarVisibility(visibility: Boolean) {
+        if (visibility)
+            progress.visibility = View.VISIBLE
+        else
+            progress.visibility = View.GONE
+    }
 
+    override fun onSuccessAddingWordToDB() {
         val currentDBPath = getDatabasePath("dictionary.db").absolutePath
         Toast.makeText(this, currentDBPath, Toast.LENGTH_LONG).show()
-
     }
+
 
     override fun onErrorAddingWordToDB(error: String) {
-    }
-
-    override fun onErrorFetchingHTML(message: String) {
     }
 
     override fun setPresenter(presenter: Contract.MainPresenter) {

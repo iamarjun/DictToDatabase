@@ -8,13 +8,15 @@ interface Contract {
     interface MainView: BaseView<MainPresenter> {
         fun onSuccessAddingWordToDB()
         fun onErrorAddingWordToDB(error: String)
-        fun onErrorFetchingHTML(message: String)
+        fun progressBarVisibility(visibility: Boolean)
     }
 
     //The main in name just represents that its the presenter interface for MainActivity
     interface MainPresenter: BasePresenter {
         fun downloadWords()
-        fun addWordToDB(dictionary: Dictionary)
+        fun dropDB()
+        fun getAllWords()
+        fun getLastWords()
     }
 
 }

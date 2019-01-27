@@ -12,4 +12,10 @@ interface DictionaryDAO {
 
     @Query("SELECT * FROM dictionary")
     fun getAllMessages(): List<Dictionary>
+
+    @Query("SELECT * FROM dictionary ORDER BY id DESC")
+    fun getLastEntries(): List<Dictionary>
+
+    @Query("SELECT * FROM dictionary ORDER BY id DESC LIMIT 1")
+    fun getLastRecord(): Dictionary
 }
