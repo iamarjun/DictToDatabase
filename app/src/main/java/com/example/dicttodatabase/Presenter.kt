@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.dicttodatabase.database.Dictionary
 import com.example.dicttodatabase.database.DictionaryDatabase
 import com.example.dicttodatabase.network.Client
+import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
@@ -37,14 +38,7 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
 
     private val getLastWords: Disposable
         get() = Single.fromCallable<Unit> {
-//            for (i in 0 until 50) {
-//                Log.i("WORDS", db.dictionaryDAO().getLastEntries()[i].word)
-//                Log.i("SPEECHES", db.dictionaryDAO().getLastEntries()[i].speech)
-//                Log.i("MEANING", db.dictionaryDAO().getLastEntries()[i].meaning)
-//            }
-
             Log.i("LAST RECORD", db.dictionaryDAO().getLastRecord().word)
-
         }
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
@@ -66,10 +60,27 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
 
     override fun downloadWords() {
 
-        var alphabet = 'a'
-        view.progressBarVisibility(true)
+        Observable
+            .fromIterable(listOfAlphabets)
+            .flatMap { alphabet: String ->
+                Observable
+                    .just(alphabet)
+                    .doOnNext { a -> download(a) }
+                    .subscribeOn(Schedulers.io())
+            }
+            .doOnError { t -> logError(t) }
+            .subscribe()
 
-        client.downloadFile("wb1913_$alphabet.html")
+
+    }
+
+    private fun logError(t: Throwable?) {
+        view.onErrorAddingWordToDB(t.toString())
+    }
+
+    private fun download(url: String) {
+        view.progressBarVisibility(true)
+        client.downloadFile(url)
             .subscribeOn(Schedulers.io())
             .filter { html ->
                 htmlParser(html)
@@ -81,7 +92,6 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
                 }
 
                 override fun onNext(t: String) {
-                    alphabet++
                     view.progressBarVisibility(false)
                     view.onSuccessAddingWordToDB()
                 }
@@ -138,5 +148,37 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
     }
 
     override fun onDetach() {
+    }
+
+    companion object {
+
+        val listOfAlphabets = listOf(
+            "wb1913_a.html",
+            "wb1913_b.html",
+            "wb1913_c.html",
+            "wb1913_d.html",
+            "wb1913_e.html",
+            "wb1913_f.html",
+            "wb1913_g.html",
+            "wb1913_h.html",
+            "wb1913_i.html",
+            "wb1913_j.html",
+            "wb1913_k.html",
+            "wb1913_l.html",
+            "wb1913_m.html",
+            "wb1913_n.html",
+            "wb1913_o.html",
+            "wb1913_p.html",
+            "wb1913_q.html",
+            "wb1913_r.html",
+            "wb1913_s.html",
+            "wb1913_t.html",
+            "wb1913_u.html",
+            "wb1913_v.html",
+            "wb1913_w.html",
+            "wb1913_x.html",
+            "wb1913_y.html",
+            "wb1913_z.html"
+        )
     }
 }
