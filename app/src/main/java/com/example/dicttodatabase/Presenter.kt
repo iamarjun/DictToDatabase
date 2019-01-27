@@ -1,5 +1,6 @@
 package com.example.dicttodatabase
 
+import android.os.Handler
 import android.util.Log
 import com.example.dicttodatabase.database.Dictionary
 import com.example.dicttodatabase.database.DictionaryDatabase
@@ -22,19 +23,17 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
     internal lateinit var client: Client
 
     private var db: DictionaryDatabase = DictionaryDatabase.getInstance()!!
+    private var count = 0
 
     private val getAllWords: Disposable
-        get() = Single.fromCallable<Unit> {
-            for (i in 0 until 50) {
-                Log.i("WORDS", db.dictionaryDAO().getAllMessages()[i].word)
-                Log.i("SPEECHES", db.dictionaryDAO().getAllMessages()[i].speech)
-                Log.i("MEANING", db.dictionaryDAO().getAllMessages()[i].meaning)
-            }
+        get() = Single.fromCallable<List<Dictionary>> {
+            db.dictionaryDAO().getAllWords()
         }
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
+            .doAfterSuccess { view.getAllWords(it) }
             .doOnError { it.printStackTrace() }
-            .subscribe(Consumer<Unit> { })
+            .subscribe(Consumer<List<Dictionary>> { })
 
     private val getLastWords: Disposable
         get() = Single.fromCallable<Unit> {
@@ -60,26 +59,22 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
 
     override fun downloadWords() {
 
+        view.progressBarVisibility(true)
+
         Observable
             .fromIterable(listOfAlphabets)
             .flatMap { alphabet: String ->
                 Observable
                     .just(alphabet)
                     .doOnNext { a -> download(a) }
+
                     .subscribeOn(Schedulers.io())
             }
-            .doOnError { t -> logError(t) }
+            .doOnError { t -> t.printStackTrace() }
             .subscribe()
-
-
-    }
-
-    private fun logError(t: Throwable?) {
-        view.onErrorAddingWordToDB(t.toString())
     }
 
     private fun download(url: String) {
-        view.progressBarVisibility(true)
         client.downloadFile(url)
             .subscribeOn(Schedulers.io())
             .filter { html ->
@@ -88,16 +83,25 @@ class Presenter(private val view: Contract.MainView) : Contract.MainPresenter {
             }
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(object : DisposableObserver<String>() {
-                override fun onComplete() {
-                }
+                override fun onComplete() {}
 
                 override fun onNext(t: String) {
-                    view.progressBarVisibility(false)
-                    view.onSuccessAddingWordToDB()
+
+                    val matchedWords = ArrayList<String>()
+                    val wrd = Pattern.compile("(<P><B>)(.*?)(<\\/B>)").matcher(t)
+                    while (wrd.find()) {
+                        matchedWords.add(wrd.group(2))
+                    }
+                    val words = matchedWords.toTypedArray()
+                    count++
+                    if (count == 26) {
+                        view.progressBarVisibility(false)
+                        view.onSuccesWritingAllWordsToDB()
+                    }
+                    view.onSuccessAddingWordToDB(words[0])
                 }
 
                 override fun onError(e: Throwable) {
-                    view.progressBarVisibility(false)
                     view.onErrorAddingWordToDB(e.message.toString())
                 }
 

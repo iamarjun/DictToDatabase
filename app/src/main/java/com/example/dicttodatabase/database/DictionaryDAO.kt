@@ -11,7 +11,7 @@ interface DictionaryDAO {
     fun insert(dictionary: Dictionary)
 
     @Query("SELECT * FROM dictionary")
-    fun getAllMessages(): List<Dictionary>
+    fun getAllWords(): List<Dictionary>
 
     @Query("SELECT * FROM dictionary ORDER BY id DESC")
     fun getLastEntries(): List<Dictionary>
